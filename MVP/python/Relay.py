@@ -64,7 +64,7 @@ class Relay(object):
         self.setState(lightPin, True)
         time.sleep(5)
         print "Turn Fan Off"
-        self.setOff(lightPin, True)
+        self.setOff(fanPin, True)
         time.sleep(5)        
         print "Turn Light Off"
         self.setOff(lightPin, True)
