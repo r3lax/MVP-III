@@ -1,0 +1,4 @@
+  File "/home/pi/MVP/scripts/startNodeRed.sh", line 2
+    nohup node-red start &> /home/pi/MVP/logs/nodered.log &
+             ^
+SyntaxError: invalid syntax

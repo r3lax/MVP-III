@@ -1,0 +1,4 @@
+  File "/home/pi/MVP/python/CouchHeartbeat.py", line 34
+    Print 'Running', cmd
+                  ^
+SyntaxError: invalid syntax
