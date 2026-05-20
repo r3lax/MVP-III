@@ -1,0 +1,109 @@
+name: Socket security scan
+
+# Socket's GitHub app is the first line of PR annotation. To preserve Socket API
+# quota, PRs rely on the app checks; main/scheduled/manual runs use the CLI gate.
+on:
+  pull_request:
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "npm-shrinkwrap.json"
+      - "pnpm-lock.yaml"
+      - "yarn.lock"
+      - "bun.lockb"
+      - "pyproject.toml"
+      - "requirements*.txt"
+      - "Pipfile"
+      - "Pipfile.lock"
+      - "poetry.lock"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "go.mod"
+      - "go.sum"
+      - "Gemfile"
+      - "Gemfile.lock"
+      - ".github/workflows/socket-security.yml"
+      - ".github/workflows/socket-fix.yml"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "npm-shrinkwrap.json"
+      - "pnpm-lock.yaml"
+      - "yarn.lock"
+      - "bun.lockb"
+      - "pyproject.toml"
+      - "requirements*.txt"
+      - "Pipfile"
+      - "Pipfile.lock"
+      - "poetry.lock"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "go.mod"
+      - "go.sum"
+      - "Gemfile"
+      - "Gemfile.lock"
+      - ".github/workflows/socket-security.yml"
+      - ".github/workflows/socket-fix.yml"
+  schedule:
+    - cron: "20 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: socket-security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  socket-security:
+    name: Socket policy gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOCKET_CLI_VERSION: "1.1.93"
+      SOCKET_CLI_ORG_SLUG: "atlas-private-holdings"
+      SOCKET_SECURITY_API_TOKEN: ${{ secrets.SOCKET_SECURITY_API_TOKEN || secrets.SOCKET_CLI_API_TOKEN || secrets.SOCKET_SECURITY_API_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Resolve Socket token
+        id: socket-token
+        run: |
+          if [ -z "${SOCKET_SECURITY_API_TOKEN:-}" ]; then
+            echo "::warning title=Socket CLI token missing::Socket GitHub App checks still run, but the repo-owned CLI policy gate is skipped. Set SOCKET_SECURITY_API_TOKEN, SOCKET_CLI_API_TOKEN, or SOCKET_SECURITY_API_KEY as an org/repo Actions secret to enable this extra gate."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Socket policy scan
+        if: ${{ steps.socket-token.outputs.available == 'true' && github.event_name != 'pull_request' }}
+        run: npm exec --yes --package "socket@${SOCKET_CLI_VERSION}" -- socket ci
+
+      - name: Record Socket App PR coverage
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          {
+            echo "## Socket security scan"
+            echo
+            echo "Socket GitHub App checks cover pull requests. The repo-owned CLI scan is reserved for main, scheduled, and manual runs to preserve API quota."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record Socket App fallback
+        if: ${{ steps.socket-token.outputs.available != 'true' && github.event_name != 'pull_request' }}
+        run: |
+          {
+            echo "## Socket security scan"
+            echo
+            echo "Socket CLI policy scan skipped because no Socket API token secret was available to Actions."
+            echo "The Socket GitHub App checks still run on pull requests and remain the active supply-chain signal."
+          } >> "$GITHUB_STEP_SUMMARY"
